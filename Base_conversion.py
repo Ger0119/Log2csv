@@ -3,13 +3,18 @@ def main():
 
 
 def dec2AZ(num):
+
     try:
         int(num)
     except ValueError:
         print('Input Error: Not a number')
         exit()
-    
+
     result = ''
+    Dict = {}
+    for x in range(1,27):
+        Dict[x] = chr(64+x)
+
     while True:
         if num // 26 == 0:
             result = Dict[num] + result
