@@ -5,8 +5,8 @@ def main():
 def dec2AZ(num):
     try:
         int(num)
-    except:
-        print('Intput Error: Not a number')
+    except ValueError:
+        print('Input Error: Not a number')
         exit()
     
     result = ''
@@ -27,10 +27,11 @@ def dec2AZ(num):
         num = num // 26 
     return result
 
-def AZ2dec(str):
+
+def AZ2dec(string):
     result = 0
     unit = 1
-    for x in str[::-1]:
+    for x in string[::-1]:
         result += (ord(x)-64)*unit
         unit *= 26
     return result
