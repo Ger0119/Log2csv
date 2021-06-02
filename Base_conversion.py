@@ -1,5 +1,6 @@
 def main():
-    pass
+    for x in range(100):
+        print(dec2AZ(x))
 
 
 def dec2AZ(num):
@@ -9,28 +10,16 @@ def dec2AZ(num):
     except ValueError:
         print('Input Error: Not a number')
         exit()
-
-    result = ''
-    Dict = {}
-    for x in range(1,27):
-        Dict[x] = chr(64+x)
-
-    while True:
-        if num // 26 == 0:
-            result = Dict[num] + result
-            break
+    result = ""
+    alpha = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    while num > 0:
         if num % 26 == 0:
-            if num <= (27*26):
-                result += Dict[num/26-1] + Dict[26]
-                break
-            else: 
-                result = Dict[(num/26-1)//26] + result
-                num -= ((num/26-1)//26)*26*26
-                continue
-        if num > 26:
-            result = Dict[(num-1) % 26 + 1] + result
-        num = num // 26 
-    return result
+            result += "Z"
+            num -= 26
+        else:
+            result += alpha[num%26-1]
+        num //= 26
+    return result[::-1]
 
 
 def AZ2dec(string):
