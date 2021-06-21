@@ -12,6 +12,7 @@ def main():
     if len(file) > 1:
         for x in file[1:]:
             dataFrame2 = log2csv(x,0)
+            dataFrame2 = dataFrame2.loc[:,lambda x : x.loc["P/F"] == "PASS"]
             dataFrame.update(dataFrame2.iloc[:,1:])
 
     dataFrame.to_csv(file[0]+'.csv')
@@ -32,7 +33,7 @@ def log2csv(file,test_flag=1):
 
     with open(file, 'r') as f:
         Pro = Solution()
-        for data in f:
+        for data in f.readlines():
             if not data:
                 break
             data = data.strip()
@@ -167,14 +168,12 @@ class Test_data(object):
     def T_BIN(self,BIN,Dut):
         self.T_data[str(Dut)][6] = str(BIN)
 
-    @staticmethod
-    def add_dic(dic1, dic2):
+    def add_dic(self,dic1, dic2):
         for x in list(dic2.keys()):
             dic1[x] = dic2[x]
         return dic1
 
-    @staticmethod
-    def fix_dic(data):
+    def fix_dic(self,data):
         dic = {}
         for x in list(data.keys()):
             if x == 'Test':
