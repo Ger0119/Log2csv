@@ -12,8 +12,18 @@ def main():
     if len(file) > 1:
         for x in file[1:]:
             dataFrame2 = log2csv(x,0)
-            dataFrame2 = dataFrame2.loc[:,lambda x : x.loc["P/F"] == "PASS"]
-            dataFrame.update(dataFrame2.iloc[:,1:])
+            dataFrame2 = dataFrame2.iloc[:,1:]
+            #dataFrame2 = dataFrame2.loc[:,lambda x : x.loc["P/F"] == "PASS"]
+            for lot in dataFrame2:
+                if lot not in dataFrame:
+                    dataFrame = pd.concat([dataFrame,dataFrame2],axis=1)
+                    continue
+                if dataFrame.loc["P/F",lot] == "PASS" and dataFrame2.loc["P/F",lot] != "PASS":
+                    continue
+                else:
+                    dataFrame.update(dataFrame2[lot])
+
+            #dataFrame.update(dataFrame2.iloc[:,1:])
 
     dataFrame.to_csv(file[0]+'.csv')
 
