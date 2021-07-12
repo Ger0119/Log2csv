@@ -59,7 +59,7 @@ def log2csv(file,test_flag=1):
                 Result.T_clear()
                 continue
 
-            if not re.match(r'\d',data):
+            if not re.match(r'\d+\s+',data):
                 if re.match(r'DUT\s\d',data):
                     _line = data.split()
                     Dut   = _line[1]
@@ -144,7 +144,7 @@ class Test_data(object):
     def __init__(self, T_name, T_value, Dut):
         self.T_name = T_name
         self.T_value = T_value
-        self.Dut = Dut
+        self.Dut = str(Dut)
 
         if self.T_name not in self.T_lst:
             self.T_lst.append(self.T_name)
