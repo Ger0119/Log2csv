@@ -7,16 +7,18 @@ import time
 
 def main():
 
-    file = sys.argv[1:]
-    dataFrame = log2csv(file[0])
-    if len(file) > 1:
-        for x in file[1:]:
+    files = sys.argv[1:]
+    dataFrame = log2csv(files[0])
+    if len(files) > 1:
+        for x in files[1:]:
             dataFrame2 = log2csv(x,0)
             dataFrame2 = dataFrame2.iloc[:,1:]
             #dataFrame2 = dataFrame2.loc[:,lambda x : x.loc["P/F"] == "PASS"]
             for lot in dataFrame2:
+                if lot == "0.0.0":
+                    continue
                 if lot not in dataFrame:
-                    dataFrame = pd.concat([dataFrame,dataFrame2],axis=1)
+                    dataFrame = pd.concat([dataFrame,dataFrame2.loc[:,lot]],axis=1)
                     continue
                 if dataFrame.loc["P/F",lot] == "PASS" and dataFrame2.loc["P/F",lot] != "PASS":
                     continue
