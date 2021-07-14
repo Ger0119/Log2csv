@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+# Author:Kin Ketsu
+
 import pandas as pd
 import numpy as np
 import sys
@@ -27,7 +31,7 @@ def main():
 
             #dataFrame.update(dataFrame2.iloc[:,1:])
 
-    dataFrame.to_csv(file[0]+'.csv')
+    dataFrame.to_csv(files[0]+'.csv')
 
 
 def log2csv(file,test_flag=1):
