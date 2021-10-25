@@ -339,7 +339,7 @@ class Solution(object):
 def tip():
     print("log2csv.py [-sort/-org] [file1] [file2] ...")
     print("-sort 　:　DCテストが前　Functionテストが後")
-    print("-nosort : テスト順番そのまま出力")
+    print("-org : テスト順番そのまま出力")
     exit()
 
 
