@@ -26,18 +26,18 @@ def main():
     while files:
         dataframe2 = log2csv(files.pop(0),flag)
 
-        for l in range(3,len(dataframe2.columns)):
-            lot = dataframe2.columns[l]
+        for li in range(3,len(dataframe2.columns)):
+            lot = dataframe2.columns[li]
 
             if lot == "0.0.0":
                 continue
             elif lot not in dataframe:
-                dataframe = pd.concat([dataframe, dataframe2.iloc[:, l]], axis=1)
+                dataframe = pd.concat([dataframe, dataframe2.iloc[:, li]], axis=1)
                 continue
-            elif dataframe.loc["P/F",lot] == "PASS" and dataframe2.iloc[3, l] != "PASS":
+            elif dataframe.loc["P/F",lot] == "PASS" and dataframe2.iloc[3, li] != "PASS":
                 continue
             else:
-                dataframe.update(dataframe2.iloc[:,l])
+                dataframe.update(dataframe2.iloc[:,li])
     dataframe.to_csv(file+".csv")
 
 
@@ -137,7 +137,8 @@ def log2csv(file,tar="-sort"):
         Res.finish()
         Res.clear()
 
-    return pd.concat([pd.DataFrame(index=Res.fix_index(Res.final(tar))),pd.DataFrame(Res.get_test()),Test_Data.df],axis=1)
+    return pd.concat([pd.DataFrame(index=Res.fix_index(Res.final(tar))),
+                      pd.DataFrame(Res.get_test()),Test_Data.df],axis=1)
 
 
 class Test_Data(object):
@@ -196,7 +197,8 @@ class Test_Data(object):
             Test_Data.lst = x.copy() if len(x) > len(Test_Data.lst) else Test_Data.lst
 
         for i in range(len(self.D_lst)):
-            temp = pd.DataFrame(self.get_data(i),index=self.get_index(self.fix_index(self.Tlst[i])),columns=[self.get_chipid(i)])
+            temp = pd.DataFrame(self.get_data(i),index=self.get_index(self.fix_index(self.Tlst[i])),
+                                columns=[self.get_chipid(i)])
             Test_Data.df = pd.concat([Test_Data.df,temp],axis=1)
 
     def final(self,tar):
@@ -216,7 +218,8 @@ class Test_Data(object):
         temp = [[],[],[],[],[],[]]
         for x in Test_Data.lst:
             temp.append(Test_Data.T_dic[x][:-1])
-        return pd.DataFrame(temp,index=self.fix_index(Test_Data.get_index(Test_Data.lst)),columns=['H_Limit','L_Limit','Unit'])
+        return pd.DataFrame(temp,index=self.fix_index(Test_Data.get_index(Test_Data.lst)),
+                            columns=['H_Limit','L_Limit','Unit'])
 
     def get_data(self,i):
         return [self.Wno[i],self.XADR[i],self.YADR[i],self.PF[i],self.fail[i],self.BIN[i]]+self.data[i]
@@ -236,8 +239,8 @@ class Test_Data(object):
         self.BIN.clear()
 
     @staticmethod
-    def get_index(l):
-        return ["Wno","X","Y","P/F","FailTest","BIN"]+l
+    def get_index(lst):
+        return ["Wno","X","Y","P/F","FailTest","BIN"]+lst
 
     @staticmethod
     def fix_index(lst):
@@ -343,7 +346,7 @@ def tip():
     exit()
 
 
-def fix_DF(df):
+def fix_DF(df) -> pd.DataFrame:
     lst = list(df.columns)
     mul = [x for x in lst if lst.count(x) > 1]
     if len(mul) == 0:
