@@ -15,52 +15,34 @@ def main():
         tip()
     flag  = sys.argv[1]
     files = sys.argv[2:]
-    file  = files[0]
-    for f in files:
-        if f not in os.listdir():
-            print("No "+f+" in directory")
-            exit()
-
-    dataframe = fix_DF(log2csv(files.pop(0),flag))
-
+    file  = files.pop(0)
+    dataframe = log2csv(file)
     while files:
-        dataframe2 = log2csv(files.pop(0),flag)
+        f = files.pop(0)
+        dataframe2 = log2csv(f)
+        dataframe = pd.concat([dataframe,dataframe2],axis=1)
+    lot = Pro.fix_list(dataframe.columns)
+    dataframe = dataframe.groupby(dataframe.columns,axis=1).agg(lambda x : Pro.fix_DF(x))
+    dataframe = T.final(dataframe.loc[:,lot])
 
-        for li in range(3,len(dataframe2.columns)):
-            lot = dataframe2.columns[li]
+    if flag == "-sort":
+        dataframe = pd.concat([dataframe.loc[dataframe.loc[:, "type"] == "", :],
+                               dataframe.loc[dataframe.loc[:, "type"] == "DC",:],
+                               dataframe.loc[dataframe.loc[:, "type"] == "FT",:]],axis=0)
 
-            if lot == "0.0.0":
-                continue
-            elif lot not in dataframe:
-                dataframe = pd.concat([dataframe, dataframe2.iloc[:, li]], axis=1)
-                continue
-            elif dataframe.loc["P/F",lot] == "PASS" and dataframe2.iloc[3, li] != "PASS":
-                continue
-            else:
-                dataframe.update(dataframe2.iloc[:,li])
-    dataframe.to_csv(file+".csv")
+    dataframe.drop(['type'],axis=1).to_csv(file+".csv",index=False)
 
 
-def log2csv(file,tar="-sort"):
-    ID      = ""
-    Des     = ""
-    Pin     = ""
-    Pat     = ""
-    Dut     = ""
-    H_Limit = ""
-    L_Limit = ""
-    Value   = ""
-    Unit    = ""
-    PF      = ""
-    Bin     = ""
-    flag    = ""
+def log2csv(file):
     ed_flag = 0
+
     desSNo  = 0
     desENo  = -1
-    patBin = re.compile(r'DUT (\d+) : (\w+) :')
+    patBin  = re.compile(r'DUT (\d+) : (\w+) :')
+    out     = open("temp.csv","w+")
 
     with open(file, 'r') as f:
-        Pro = Solution()
+
         for line in f.readlines():
             if not line:
                 break
@@ -69,6 +51,7 @@ def log2csv(file,tar="-sort"):
 
             if re.match(r'Test ID\s+Test Description\s+',line):
                 desSNo, desENo = Pro.get_des_N(line)
+                Res = Test_data()
                 continue
 
             line = Pro.fix_line(line,desSNo,desENo)
@@ -83,9 +66,9 @@ def log2csv(file,tar="-sort"):
                 if re.match(r'Bins',line):
                     ed_flag = 1
                 if ed_flag == 1 and line == "":
-                    Res.finish()
-                    Res.clear()
                     ed_flag = 0
+                    Res.finish(out)
+                    Res.clear()
                 continue
 
             data = line.split()
@@ -123,136 +106,151 @@ def log2csv(file,tar="-sort"):
                 Pin = ""
                 flag = "FT"
             else:
-                print("Error : Lost line ",line)
+                print("Error : Lost line ", line)
                 continue
 
             Pat = Pro.get_Pat(ID,Des,Pin)
+            if flag == "FT":
+                H_Limit, L_Limit, Unit = "", "", ""
 
-            Res = Test_Data(Pat,Dut,Value,flag,H_Limit,L_Limit,Unit)
+            T.Input_Data(Pat,H_Limit,L_Limit,Unit,flag)
+            Res.Input_Value(Dut, Pat, Value)
+            if "FAIL" in line:
+                Res.Input_failT(Dut,Pat)
 
-            if 'FAIL' in line:
-                Res.set_fail(Dut,Pat)
+    Res.finish(out)
+    del Res
+    out.close()
 
-    if ed_flag == 1:
-        Res.finish()
-        Res.clear()
+    base = pd.DataFrame()
 
-    return pd.concat([pd.DataFrame(index=Res.fix_index(Res.final(tar))),
-                      pd.DataFrame(Res.get_test()),Test_Data.df],axis=1)
+    try:
+        temp = pd.read_csv("temp.csv",dtype=str,header=None,low_memory=False)
+
+        for i in range(0,len(temp.index),2):
+            temp_col = ["Wno","X","Y","P/F","DUT","FailTest","BIN"]+ list(temp.iloc[i,7:])
+            temp_col = Pro.dropNaN(temp_col)
+            temp_d = pd.DataFrame(Pro.dropNaN(list(temp.iloc[i+1,:])),index=Pro.fix_Index(temp_col),columns=['.'.join(temp.iloc[i+1,:3])])
+
+            base = pd.concat([base,temp_d],axis=1)
+    except:
+        f = open("temp.csv", "r")
+        data = f.readlines()
+        f.close()
+        maxn = max(len(x.strip().split(',')) for x in data)
+        f = open("temp.csv", "w")
+        for x in data:
+            x = x.strip()
+            num = maxn -len(x.split(','))
+            f.writelines(x + ',' * num + "\n")
+        f.close()
+
+    temp = pd.read_csv("temp.csv",header=None,low_memory=False,na_values=np.nan,dtype=str)
+
+    for i in range(0,len(temp.index),2):
+        temp_col = ["Wno","X","Y","P/F","DUT","FailTest","BIN"]+ list(temp.iloc[i,7:])
+        temp_col = Pro.dropNaN(temp_col)
+        temp_d = pd.DataFrame(Pro.dropNaN(list(temp.iloc[i+1,:])),index=Pro.fix_Index(temp_col),columns=['.'.join(temp.iloc[i+1,:3])])
+
+        base = pd.concat([base,temp_d],axis=1)
+
+    os.remove("temp.csv")
+
+    return base
 
 
-class Test_Data(object):
-    T_dic  = {}
-    lst    = []
-    D_lst  = []
-    fail   = []
-    data   = []
-    Tlst   = []
-    Wno    = []
-    XADR   = []
-    YADR   = []
-    PF     = []
-    BIN    = []
-    df = pd.DataFrame()
+class Test_data(object):
+    D_lst = []
+    Data  = []
+    T_lst = []
+    Wno   = []
+    XADR  = []
+    YADR  = []
+    FailT = []
+    PF    = []
+    Bin   = []
 
-    def __init__(self,Pat,Dut,Value,flag,H="",L="",U=""):
+    def Input_Value(self,Dut,Pat,Value):
         if Dut not in self.D_lst:
             self.D_lst.append(Dut)
-            self.fail.append("")
+            self.Data.append([])
+            self.T_lst.append([])
             self.Wno.append("")
             self.XADR.append("")
             self.YADR.append("")
-            self.PF.append("")
-            self.BIN.append("")
-            self.data.append([])
-            self.Tlst.append([])
+            self.PF.append("0")
+            self.FailT.append("")
+            self.Bin.append("")
 
-        self.data[self.D_lst.index(Dut)].append(Value)
-        self.Tlst[self.D_lst.index(Dut)].append(Pat)
+        D_index = self.D_lst.index(Dut)
+        self.Data[D_index].append(Value)
+        self.T_lst[D_index].append(str(Test_class.T_dic[Pat][0]))
 
-        if "CHIPID" in Pat:
-            if "WNO" in Pat:
-                self.Wno[self.D_lst.index(Dut)] = str(int(Value))
-            elif "XADR" in Pat:
-                self.XADR[self.D_lst.index(Dut)] = str(int(Value))
-            elif "YADR" in Pat:
-                self.YADR[self.D_lst.index(Dut)] = str(int(Value))
+        if "WNO" in Pat:
+            self.Wno[D_index]  = '{:.0f}'.format(float(Value))
+        elif "XADR" in Pat:
+            self.XADR[D_index] = '{:.0f}'.format(float(Value))
+        elif "YADR" in Pat:
+            self.YADR[D_index] = '{:.0f}'.format(float(Value))
 
-        if Pat not in Test_Data.T_dic:
-            if flag == "FT":
-                H, L, U = "", "", ""
-            Test_Data.T_dic[Pat] = [str(H), str(L), U, flag]
-
-    def set_fail(self,Dut,Pat):
-        self.fail[self.D_lst.index(Dut)] = Pat
+    def Input_failT(self,Dut,Pat):
+        D_index = self.D_lst.index(Dut)
+        self.FailT[D_index] = Pat
 
     def set_res(self,Dut,PF,Bin):
-        self.PF[self.D_lst.index(Dut)] = PF
-        self.BIN[self.D_lst.index(Dut)] = Bin
+        D_index = self.D_lst.index(Dut)
         if PF == "PASS":
-            self.fail[self.D_lst.index(Dut)] = "0"
+            self.FailT[D_index] = "0"
+        self.PF[D_index] = PF
+        self.Bin[D_index] = Bin
 
-    def finish(self):
-        for x in self.Tlst:
-            Test_Data.lst = x.copy() if len(x) > len(Test_Data.lst) else Test_Data.lst
-
-        for i in range(len(self.D_lst)):
-            temp = pd.DataFrame(self.get_data(i),index=self.get_index(self.fix_index(self.Tlst[i])),
-                                columns=[self.get_chipid(i)])
-            Test_Data.df = pd.concat([Test_Data.df,temp],axis=1)
-
-    def final(self,tar):
-        if tar == "-org":
-            return self.fix_index(self.get_index(Test_Data.lst))
-        elif tar == "-sort":
-            temp_dc = []
-            temp_ft = []
-            for x in Test_Data.lst:
-                if Test_Data.T_dic[x][-1] == "DC":
-                    temp_dc.append(x)
-                elif Test_Data.T_dic[x][-1] == "FT":
-                    temp_ft.append(x)
-            return self.get_index(self.fix_index(temp_dc)+temp_ft)
-
-    def get_test(self):
-        temp = [[],[],[],[],[],[]]
-        for x in Test_Data.lst:
-            temp.append(Test_Data.T_dic[x][:-1])
-        return pd.DataFrame(temp,index=self.fix_index(Test_Data.get_index(Test_Data.lst)),
-                            columns=['H_Limit','L_Limit','Unit'])
-
-    def get_data(self,i):
-        return [self.Wno[i],self.XADR[i],self.YADR[i],self.PF[i],self.fail[i],self.BIN[i]]+self.data[i]
-
-    def get_chipid(self,i):
-        return '.'.join((self.Wno[i], self.XADR[i], self.YADR[i]))
+    def finish(self,f):
+        for dut in self.D_lst:
+            d = self.D_lst.index(dut)
+            f.writelines(','.join(["","","","","","",""]+self.T_lst[d]))
+            f.writelines("\n")
+            f.writelines(','.join([self.Wno[d],self.XADR[d],self.YADR[d],self.PF[d],dut,self.FailT[d],self.Bin[d]]+self.Data[d]))
+            f.writelines("\n")
 
     def clear(self):
         self.D_lst.clear()
-        self.fail.clear()
-        self.data.clear()
-        self.Tlst.clear()
+        self.Data.clear()
+        self.T_lst.clear()
         self.Wno.clear()
         self.XADR.clear()
         self.YADR.clear()
         self.PF.clear()
-        self.BIN.clear()
+        self.FailT.clear()
+        self.Bin.clear()
 
-    @staticmethod
-    def get_index(lst):
-        return ["Wno","X","Y","P/F","FailTest","BIN"]+lst
 
-    @staticmethod
-    def fix_index(lst):
+class Test_class(object):
+    T_dic = {}
+    T_key = {}
+    cnt = 0
 
-        for x in (i for i in lst if lst.count(i) > 1):
-            cnt = 0
-            base = lst.index(x)
-            while lst.count(x) != 0:
-                lst[lst.index(x)] += "_"+str(cnt)
-                cnt +=1
-            lst[base] = x
-        return lst
+    def Input_Data(self,Pat,High,Low,Unit="",type=""):
+        if Pat not in self.T_dic:
+            self.T_dic[Pat] = [str(self.cnt),str(High),str(Low),Unit,type]
+            self.T_key[str(self.cnt)] = Pat
+            self.cnt += 1
+
+    def final(self,df):
+        lst = list(df.index)
+        temp = []
+        for i in range(len(lst)):
+            if lst[i] in ["Wno","X","Y","P/F","DUT","FailTest","BIN"]:
+                temp.append(["","","",""])
+                continue
+            if '.' in lst[i]:
+                lst[i] = self.T_key[re.sub(r'\.\d+','',lst[i])]
+            else:
+                lst[i] = self.T_key[lst[i]]
+            temp.append(self.T_dic[lst[i]][1:])
+
+        return pd.concat([pd.DataFrame(lst,index=df.index),
+                          pd.DataFrame(temp,index=df.index,columns=["H-Limit","L-Limit","Unit","type"]),
+                          df],axis=1)
 
 
 class Solution(object):
@@ -264,6 +262,59 @@ class Solution(object):
         temp = re.sub(r'\s+','_',temp).strip('_')
         line = ''.join((line[:start],temp,line[end:]))
         return line.strip()
+
+    @staticmethod
+    def fix_DF(df):
+        if type(df) == pd.Series:
+            return df
+
+        base = pd.DataFrame(df.iloc[:, -1], index=df.index)
+        if base.iloc[3, 0] == "PASS":
+            flag = "P"
+        else:
+            flag = "F"
+        for x in range(len(df.columns) - 2, -1, -1):
+            if df.iloc[3, x] == "PASS":
+                if flag == "P":
+                    #base.iloc[:, 0].combine_first(df.iloc[:, x])
+                    base.loc[base.iloc[:, 0] != "",base.columns[0]].combine_first(df.iloc[:, x])
+                else:
+                    base.loc[base.iloc[:, 0] != "",base.columns[0]] = df.iloc[:, x].combine_first(base.iloc[:, 0])
+                    flag = "P"
+            elif df.iloc[3, x] == "FAIL":
+                base.iloc[:, 0].combine_first(df.iloc[:, x])
+        return base.iloc[:, 0]
+
+    @staticmethod
+    def dropNaN(lst):
+        temp = pd.Series(lst)
+        temp.dropna(inplace=True)
+        return temp.values
+
+    def fix_Index(self,lst):
+        if len(set(lst)) == len(lst):
+            return lst
+        temp = []
+        for x in lst:
+            if x not in temp:
+                temp.append(str(x))
+            else:
+                cnt = 1
+                while True:
+                    if str(x)+'.'+str(cnt) in lst:
+                        cnt += 1
+                    else:
+                        break
+                temp.append(str(x)+'.'+str(cnt))
+        return Solution.dropNaN(temp)
+
+    @staticmethod
+    def fix_list(lst):
+        temp = []
+        for x in list(lst):
+            if x not in temp:
+                temp.append(x)
+        return temp
 
     @staticmethod
     def get_des_N(line):
@@ -278,8 +329,8 @@ class Solution(object):
         if data == "None":
             return '-', ''
         Unit = np.nan
-        pat = re.search(r'^([-\d.]+)', data)
-        num = pat.group(0)
+        pat  = re.search(r'^([-\d.]+)', data)
+        num  = pat.group(0)
         Unit = data.replace(num, '')
 
         return float(num), Unit
@@ -293,24 +344,27 @@ class Solution(object):
 
         if Low_U:
             Unit = Low_U
-        elif High_U:
-            Unit = High_U
-        else:
+        elif Value_U and float(Value) != 0:
             Unit = Value_U
+        else:
+            Unit = High_U
 
         Value = self.Unit_change(Value_U, Unit, Value)
         High  = self.Unit_change(High_U, Unit, High)
         Low   = self.Unit_change(Low_U, Unit, Low)
 
-        if str(Value).isalnum():
-            Value = '{:.3f}'.format(Value)
+        try:
+            Value = '{:.3f}'.format(float(Value))
+        except:
+            pass
+
         if Unit == "":
             Unit = "-"
         return Value,High,Low,Unit
 
     @staticmethod
     def Unit_change(before, after, number):
-        if number == r'-' or number is np.nan or number == '' :
+        if number == r'-' or number is np.nan or number == '' or number == 0:
             return number
         if before == after:
             return number
@@ -346,21 +400,10 @@ def tip():
     exit()
 
 
-def fix_DF(df) -> pd.DataFrame:
-    lst = list(df.columns)
-    mul = [x for x in lst if lst.count(x) > 1]
-    if len(mul) == 0:
-        return df
-    nu = []
-    for x in lst:
-        if x not in nu:
-            nu.append(x)
-
-    return df.groupby(df.columns,axis=1).agg(lambda x:x.iloc[:,-1]).loc[:,nu]
-
-
 if __name__ == '__main__':
     start_t = time.time()
+    T = Test_class()
+    Pro = Solution()
     main()
     end_t = time.time()
 
