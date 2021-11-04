@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 # Author:Kin Ketsu
+# Version 2 : 2021/11/01
 
 import numpy as np
 import pandas as pd
@@ -22,7 +23,7 @@ def main():
         dataframe2 = log2csv(f)
         dataframe = pd.concat([dataframe,dataframe2],axis=1)
     lot = Pro.fix_list(dataframe.columns)
-    dataframe = dataframe.groupby(dataframe.columns,axis=1).agg(lambda x : Pro.fix_DF(x))
+    dataframe = dataframe.groupby(dataframe.columns,axis=1).agg(lambda x : Pro.fix_DF(x))   # サンプルごとに纏めない場合、この行をコメントする。
     dataframe = T.final(dataframe.loc[:,lot])
 
     if flag == "-sort":
@@ -130,7 +131,9 @@ def log2csv(file):
         for i in range(0,len(temp.index),2):
             temp_col = ["Wno","X","Y","P/F","DUT","FailTest","BIN"]+ list(temp.iloc[i,7:])
             temp_col = Pro.dropNaN(temp_col)
-            temp_d = pd.DataFrame(Pro.dropNaN(list(temp.iloc[i+1,:])),index=Pro.fix_Index(temp_col),columns=['.'.join(temp.iloc[i+1,:3])])
+            temp_d = pd.DataFrame(Pro.dropNaN(list(temp.iloc[i+1,:])),
+                                  index=Pro.fix_Index(temp_col),
+                                  columns=['.'.join(temp.iloc[i+1,:3])])
 
             base = pd.concat([base,temp_d],axis=1)
     except:
@@ -150,7 +153,9 @@ def log2csv(file):
     for i in range(0,len(temp.index),2):
         temp_col = ["Wno","X","Y","P/F","DUT","FailTest","BIN"]+ list(temp.iloc[i,7:])
         temp_col = Pro.dropNaN(temp_col)
-        temp_d = pd.DataFrame(Pro.dropNaN(list(temp.iloc[i+1,:])),index=Pro.fix_Index(temp_col),columns=['.'.join(temp.iloc[i+1,:3])])
+        temp_d = pd.DataFrame(Pro.dropNaN(list(temp.iloc[i+1,:])),
+                              index=Pro.fix_Index(temp_col),
+                              columns=['.'.join(temp.iloc[i+1,:3])])
 
         base = pd.concat([base,temp_d],axis=1)
 
@@ -209,7 +214,8 @@ class Test_data(object):
             d = self.D_lst.index(dut)
             f.writelines(','.join(["","","","","","",""]+self.T_lst[d]))
             f.writelines("\n")
-            f.writelines(','.join([self.Wno[d],self.XADR[d],self.YADR[d],self.PF[d],dut,self.FailT[d],self.Bin[d]]+self.Data[d]))
+            f.writelines(','.join([self.Wno[d],self.XADR[d],self.YADR[d],self.PF[d],dut,self.FailT[d],self.Bin[d]]
+                                  +self.Data[d]))
             f.writelines("\n")
 
     def clear(self):
@@ -229,9 +235,9 @@ class Test_class(object):
     T_key = {}
     cnt = 0
 
-    def Input_Data(self,Pat,High,Low,Unit="",type=""):
+    def Input_Data(self,Pat,High,Low,Unit="",Type=""):
         if Pat not in self.T_dic:
-            self.T_dic[Pat] = [str(self.cnt),str(High),str(Low),Unit,type]
+            self.T_dic[Pat] = [str(self.cnt),str(High),str(Low),Unit,Type]
             self.T_key[str(self.cnt)] = Pat
             self.cnt += 1
 
@@ -276,7 +282,6 @@ class Solution(object):
         for x in range(len(df.columns) - 2, -1, -1):
             if df.iloc[3, x] == "PASS":
                 if flag == "P":
-                    #base.iloc[:, 0].combine_first(df.iloc[:, x])
                     base.loc[base.iloc[:, 0] != "",base.columns[0]].combine_first(df.iloc[:, x])
                 else:
                     base.loc[base.iloc[:, 0] != "",base.columns[0]] = df.iloc[:, x].combine_first(base.iloc[:, 0])
@@ -291,7 +296,8 @@ class Solution(object):
         temp.dropna(inplace=True)
         return temp.values
 
-    def fix_Index(self,lst):
+    @staticmethod
+    def fix_Index(lst):
         if len(set(lst)) == len(lst):
             return lst
         temp = []
@@ -355,7 +361,7 @@ class Solution(object):
 
         try:
             Value = '{:.3f}'.format(float(Value))
-        except:
+        except ValueError:
             pass
 
         if Unit == "":
@@ -407,4 +413,4 @@ if __name__ == '__main__':
     main()
     end_t = time.time()
 
-    print('Process took {:.3f} seconds'.format(end_t - start_t))
+    print(' The Process took {:.3f} seconds'.format(end_t - start_t))
