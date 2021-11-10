@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 # Author:Kin Ketsu
-# Version 2 : 2021/11/01
 
 import numpy as np
 import pandas as pd
@@ -36,24 +35,40 @@ def main():
 
 def log2csv(file):
     ed_flag = 0
-
+    dut_flag= 0
     desSNo  = 0
     desENo  = -1
     patBin  = re.compile(r'DUT (\d+) : (\w+) :')
     out     = open("temp.csv","w+")
 
-    with open(file, 'r') as f:
+    with open(file, 'rb') as f:
 
-        for line in f.readlines():
+        for line in f:
+            line = str(line,'utf-8')
             if not line:
                 break
             elif 'ALARM_FAIL' in line:
+                temp = line.strip().split()
+                Res.set_alarm(temp[0],temp[-1])
                 continue
-
-            if re.match(r'Test ID\s+Test Description\s+',line):
-                desSNo, desENo = Pro.get_des_N(line)
+            if "Start" in line:
                 Res = Test_data()
                 continue
+            elif re.match(r'Test ID\s+Test Description\s+',line):
+                desSNo, desENo = Pro.get_des_N(line)
+                continue
+            elif "Slot Number" in line:
+                temp = line.split(":")
+                tem_wno = temp[-1].strip()
+                dut_flag = 1
+            elif dut_flag == 1:
+                dut_flag = 0
+                temp = line.strip().split()
+                for x in temp:
+                    p = re.search(r"DUT(\d+):(\d+),(\d+)",x)
+                    Res.Input_Value(p.group(1), "WNO",  tem_wno)
+                    Res.Input_Value(p.group(1), "XADR", p.group(2))
+                    Res.Input_Value(p.group(1), "YADR", p.group(3))
 
             line = Pro.fix_line(line,desSNo,desENo)
 
@@ -77,30 +92,35 @@ def log2csv(file):
 
             if len_data == 9:
                 ID, Des = data[:2]
-                Value, H_Limit, L_Limit, Unit = Pro.get_Value(data[4:7])
                 Dut, Pin = data[-2:]
                 Pin = Pin.replace(r'-----', "")
+                Pat = Pro.get_Pat(ID, Des, Pin)
+                Value, H_Limit, L_Limit, Unit = Pro.get_Value(data[4:7]+[Pat])
                 flag = "DC"
             elif len_data == 8:
                 ID, Des = data[:2]
-                Value, H_Limit, L_Limit, Unit = Pro.get_Value(data[4:7])
                 Dut = data[-1]
                 Pin = ""
+                Pat = Pro.get_Pat(ID, Des, Pin)
+                Value, H_Limit, L_Limit, Unit = Pro.get_Value(data[4:7]+[Pat])
                 flag = "DC"
             elif len_data == 7:
-                Value, H_Limit, L_Limit, Unit = Pro.get_Value(data[2:5])
+                Pat = Pro.get_Pat(ID, Des, Pin)
                 Dut, Pin = data[-2:]
                 Pin = Pin.replace(r'-----', "")
+                Value, H_Limit, L_Limit, Unit = Pro.get_Value(data[2:5]+[Pat])
                 flag = "DC"
             elif len_data == 6:
-                Value, H_Limit, L_Limit, Unit = Pro.get_Value(data[2:5])
-                Dut = data[-1]
                 Pin = ""
+                Dut = data[-1]
+                Pat = Pro.get_Pat(ID, Des, Pin)
+                Value, H_Limit, L_Limit, Unit = Pro.get_Value(data[2:5]+[Pat])
                 flag = "DC"
             elif len_data == 5:
                 ID, Des = data[:2]
                 Value, Dut = data[-2:]
                 Pin = ""
+                Pat = Pro.get_Pat(ID, Des, Pin)
                 flag = "FT"
             elif len_data == 3:
                 Value, Dut = data[-2:]
@@ -110,7 +130,6 @@ def log2csv(file):
                 print("Error : Lost line ", line)
                 continue
 
-            Pat = Pro.get_Pat(ID,Des,Pin)
             if flag == "FT":
                 H_Limit, L_Limit, Unit = "", "", ""
 
@@ -123,44 +142,24 @@ def log2csv(file):
     del Res
     out.close()
 
+    ind = ""
     base = pd.DataFrame()
+    with open("temp.csv") as f:
+        for line in f:
+            if not line:
+                break
+            if not ind:
+                ind = line
+                continue
+            else:
+                temp_col = ["Wno", "X", "Y", "P/F", "DUT", "FailTest", "BIN", "Alarm"] + ind.strip().split(',')[8:]
+                td = line.strip().split(',')
+                temp = pd.DataFrame(td, columns=['.'.join(td[:3])], index=Pro.fix_Index(temp_col))
+                ind = ""
 
-    try:
-        temp = pd.read_csv("temp.csv",dtype=str,header=None,low_memory=False)
-
-        for i in range(0,len(temp.index),2):
-            temp_col = ["Wno","X","Y","P/F","DUT","FailTest","BIN"]+ list(temp.iloc[i,7:])
-            temp_col = Pro.dropNaN(temp_col)
-            temp_d = pd.DataFrame(Pro.dropNaN(list(temp.iloc[i+1,:])),
-                                  index=Pro.fix_Index(temp_col),
-                                  columns=['.'.join(temp.iloc[i+1,:3])])
-
-            base = pd.concat([base,temp_d],axis=1)
-    except:
-        f = open("temp.csv", "r")
-        data = f.readlines()
-        f.close()
-        maxn = max(len(x.strip().split(',')) for x in data)
-        f = open("temp.csv", "w")
-        for x in data:
-            x = x.strip()
-            num = maxn -len(x.split(','))
-            f.writelines(x + ',' * num + "\n")
-        f.close()
-
-    temp = pd.read_csv("temp.csv",header=None,low_memory=False,na_values=np.nan,dtype=str)
-
-    for i in range(0,len(temp.index),2):
-        temp_col = ["Wno","X","Y","P/F","DUT","FailTest","BIN"]+ list(temp.iloc[i,7:])
-        temp_col = Pro.dropNaN(temp_col)
-        temp_d = pd.DataFrame(Pro.dropNaN(list(temp.iloc[i+1,:])),
-                              index=Pro.fix_Index(temp_col),
-                              columns=['.'.join(temp.iloc[i+1,:3])])
-
-        base = pd.concat([base,temp_d],axis=1)
+                base = pd.concat([base, temp], axis=1)
 
     os.remove("temp.csv")
-
     return base
 
 
@@ -174,22 +173,25 @@ class Test_data(object):
     FailT = []
     PF    = []
     Bin   = []
+    Alarm = []
 
     def Input_Value(self,Dut,Pat,Value):
         if Dut not in self.D_lst:
             self.D_lst.append(Dut)
             self.Data.append([])
             self.T_lst.append([])
-            self.Wno.append("")
-            self.XADR.append("")
-            self.YADR.append("")
+            self.Wno.append("0")
+            self.XADR.append("0")
+            self.YADR.append("0")
             self.PF.append("0")
             self.FailT.append("")
             self.Bin.append("")
+            self.Alarm.append("0")
 
         D_index = self.D_lst.index(Dut)
-        self.Data[D_index].append(Value)
-        self.T_lst[D_index].append(str(Test_class.T_dic[Pat][0]))
+        if Pat not in ["WNO","XADR","YADR"]:
+            self.Data[D_index].append(Value)
+            self.T_lst[D_index].append(str(Test_class.T_dic[Pat][0]))
 
         if "WNO" in Pat:
             self.Wno[D_index]  = '{:.0f}'.format(float(Value))
@@ -209,12 +211,15 @@ class Test_data(object):
         self.PF[D_index] = PF
         self.Bin[D_index] = Bin
 
+    def set_alarm(self,Dut,pin):
+        self.Alarm[self.D_lst.index(Dut)] = pin
+
     def finish(self,f):
         for dut in self.D_lst:
             d = self.D_lst.index(dut)
-            f.writelines(','.join(["","","","","","",""]+self.T_lst[d]))
+            f.writelines(','.join(["","","","","","","",""]+self.T_lst[d]))
             f.writelines("\n")
-            f.writelines(','.join([self.Wno[d],self.XADR[d],self.YADR[d],self.PF[d],dut,self.FailT[d],self.Bin[d]]
+            f.writelines(','.join([self.Wno[d],self.XADR[d],self.YADR[d],self.PF[d],dut,self.FailT[d],self.Bin[d],self.Alarm[d]]
                                   +self.Data[d]))
             f.writelines("\n")
 
@@ -245,7 +250,7 @@ class Test_class(object):
         lst = list(df.index)
         temp = []
         for i in range(len(lst)):
-            if lst[i] in ["Wno","X","Y","P/F","DUT","FailTest","BIN"]:
+            if lst[i] in ["Wno","X","Y","P/F","DUT","FailTest","BIN","Alarm"]:
                 temp.append(["","","",""])
                 continue
             if '.' in lst[i]:
@@ -257,6 +262,9 @@ class Test_class(object):
         return pd.concat([pd.DataFrame(lst,index=df.index),
                           pd.DataFrame(temp,index=df.index,columns=["H-Limit","L-Limit","Unit","type"]),
                           df],axis=1)
+
+    def output(self):
+        pd.DataFrame.from_dict(self.T_dic).T.to_csv("Tlist.csv",header=0)
 
 
 class Solution(object):
@@ -291,28 +299,22 @@ class Solution(object):
         return base.iloc[:, 0]
 
     @staticmethod
-    def dropNaN(lst):
-        temp = pd.Series(lst)
-        temp.dropna(inplace=True)
-        return temp.values
-
-    @staticmethod
     def fix_Index(lst):
         if len(set(lst)) == len(lst):
             return lst
         temp = []
         for x in lst:
-            if x not in temp:
+            if str(x) not in temp:
                 temp.append(str(x))
             else:
                 cnt = 1
                 while True:
-                    if str(x)+'.'+str(cnt) in lst:
+                    if str(x) + "." + str(cnt) in temp:
                         cnt += 1
                     else:
+                        temp.append(str(x) + "." + str(cnt))
                         break
-                temp.append(str(x)+'.'+str(cnt))
-        return Solution.dropNaN(temp)
+        return temp
 
     @staticmethod
     def fix_list(lst):
@@ -321,6 +323,10 @@ class Solution(object):
             if x not in temp:
                 temp.append(x)
         return temp
+
+    @staticmethod
+    def getID(lst):
+        return '.'.join(str(int(x)) for x in lst)
 
     @staticmethod
     def get_des_N(line):
@@ -342,7 +348,7 @@ class Solution(object):
         return float(num), Unit
 
     def get_Value(self,data):
-        Value, High, Low = data
+        Value, High, Low ,Pat = data
 
         Value, Value_U = self.get_Unit(Value)
         High, High_U   = self.get_Unit(High)
@@ -354,6 +360,9 @@ class Solution(object):
             Unit = Value_U
         else:
             Unit = High_U
+
+        if Test_class.T_dic.get(Pat,0):
+            Unit = Test_class.T_dic[Pat][-2]
 
         Value = self.Unit_change(Value_U, Unit, Value)
         High  = self.Unit_change(High_U, Unit, High)
@@ -372,7 +381,7 @@ class Solution(object):
     def Unit_change(before, after, number):
         if number == r'-' or number is np.nan or number == '' or number == 0:
             return number
-        if before == after:
+        if before == after or before == "":
             return number
         before_U = 0
         after_U = 0
@@ -414,3 +423,13 @@ if __name__ == '__main__':
     end_t = time.time()
 
     print(' The Process took {:.3f} seconds'.format(end_t - start_t))
+
+"""
+作成日付：　2021/11/01
+
+修正歴 :  2021/11/08 Alarm_Fail抽出ファッション追加
+         2021/11/08 大CSVファイル読み取りファッション追加
+         2021/11/08 CHIPID読み取りファッション改善
+         2021/11/09 大CSVファイル読み取りファッション改善
+         2021/11/09 単位変換ファッション修正
+"""
