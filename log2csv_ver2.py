@@ -105,9 +105,9 @@ def log2csv(file):
                 Value, H_Limit, L_Limit, Unit = Pro.get_Value(data[4:7]+[Pat])
                 flag = "DC"
             elif len_data == 7:
-                Pat = Pro.get_Pat(ID, Des, Pin)
                 Dut, Pin = data[-2:]
                 Pin = Pin.replace(r'-----', "")
+                Pat = Pro.get_Pat(ID, Des, Pin)
                 Value, H_Limit, L_Limit, Unit = Pro.get_Value(data[2:5]+[Pat])
                 flag = "DC"
             elif len_data == 6:
@@ -242,7 +242,8 @@ class Test_class(object):
 
     def Input_Data(self,Pat,High,Low,Unit="",Type=""):
         if Pat not in self.T_dic:
-            self.T_dic[Pat] = [str(self.cnt),str(High),str(Low),Unit,Type]
+            temp = Pat.split('_')
+            self.T_dic[Pat] = [str(self.cnt),str(temp[0]),'_'.join(temp[1:]),str(High),str(Low),Unit,Type]
             self.T_key[str(self.cnt)] = Pat
             self.cnt += 1
 
@@ -251,7 +252,7 @@ class Test_class(object):
         temp = []
         for i in range(len(lst)):
             if lst[i] in ["Wno","X","Y","P/F","DUT","FailTest","BIN","Alarm"]:
-                temp.append(["","","",""])
+                temp.append(["","","","","",""])
                 continue
             if '.' in lst[i]:
                 lst[i] = self.T_key[re.sub(r'\.\d+','',lst[i])]
@@ -260,7 +261,7 @@ class Test_class(object):
             temp.append(self.T_dic[lst[i]][1:])
 
         return pd.concat([pd.DataFrame(lst,index=df.index),
-                          pd.DataFrame(temp,index=df.index,columns=["H-Limit","L-Limit","Unit","type"]),
+                          pd.DataFrame(temp,index=df.index,columns=["ID","Des","H-Limit","L-Limit","Unit","type"]),
                           df],axis=1)
 
     def output(self):
@@ -369,7 +370,7 @@ class Solution(object):
         Low   = self.Unit_change(Low_U, Unit, Low)
 
         try:
-            Value = '{:.3f}'.format(float(Value))
+            Value = '{:.4f}'.format(float(Value))
         except ValueError:
             pass
 
@@ -432,4 +433,5 @@ if __name__ == '__main__':
          2021/11/08 CHIPID読み取りファッション改善
          2021/11/09 大CSVファイル読み取りファッション改善
          2021/11/09 単位変換ファッション修正
+         2021/11/11 コーディング順番ミス修正
 """
