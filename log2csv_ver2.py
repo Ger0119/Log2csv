@@ -34,12 +34,12 @@ def main():
 
 
 def log2csv(file):
-    ed_flag = 0
-    dut_flag= 0
-    desSNo  = 0
-    desENo  = -1
-    patBin  = re.compile(r'DUT (\d+) : (\w+) :')
-    out     = open("temp.csv","w+")
+    ed_flag  = 0
+    dut_flag = 0
+    desSNo   = 0
+    desENo   = -1
+    patBin   = re.compile(r'DUT (\d+) : (\w+) :')
+    out      = open("temp.csv","w+")
 
     with open(file, 'rb') as f:
 
@@ -49,7 +49,7 @@ def log2csv(file):
                 break
             elif 'ALARM_FAIL' in line:
                 temp = line.strip().split()
-                Res.set_alarm(temp[0],temp[-1])
+                Res.set_alarm(temp[0],temp[-1],Pat,Value)
                 continue
             if "Start" in line:
                 Res = Test_data()
@@ -211,8 +211,8 @@ class Test_data(object):
         self.PF[D_index] = PF
         self.Bin[D_index] = Bin
 
-    def set_alarm(self,Dut,pin):
-        self.Alarm[self.D_lst.index(Dut)] = pin
+    def set_alarm(self,Dut,pin,Pat,Value):
+        self.Alarm[self.D_lst.index(Dut)] = "|".join([pin,Pat,Value])
 
     def finish(self,f):
         for dut in self.D_lst:
@@ -233,6 +233,7 @@ class Test_data(object):
         self.PF.clear()
         self.FailT.clear()
         self.Bin.clear()
+        self.Alarm.clear()
 
 
 class Test_class(object):
@@ -357,10 +358,10 @@ class Solution(object):
 
         if Low_U:
             Unit = Low_U
-        elif Value_U and float(Value) != 0:
-            Unit = Value_U
-        else:
+        elif High_U:
             Unit = High_U
+        else:
+            Unit = Low_U
 
         if Test_class.T_dic.get(Pat,0):
             Unit = Test_class.T_dic[Pat][-2]
@@ -380,9 +381,9 @@ class Solution(object):
 
     @staticmethod
     def Unit_change(before, after, number):
-        if number == r'-' or number is np.nan or number == '' or number == 0:
+        if number == r'-' or number is np.nan or not number or number == 0:
             return number
-        if before == after or before == "":
+        if before == after or not before or not after:
             return number
         before_U = 0
         after_U = 0
