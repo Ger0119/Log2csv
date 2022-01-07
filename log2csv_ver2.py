@@ -69,12 +69,12 @@ def log2csv(file):
                     Res.Input_Value(p.group(1), "WNO",  tem_wno)
                     Res.Input_Value(p.group(1), "XADR", p.group(2))
                     Res.Input_Value(p.group(1), "YADR", p.group(3))
-
+            
             line = Pro.fix_line(line,desSNo,desENo)
 
             if not re.match(r'\d+\s+', line):
                 pb = patBin.match(line)
-                if pb:
+                if pb and "NONE" not in line:
                     Dut = pb.group(1)
                     PF  = pb.group(2)
                     Bin = re.sub(pb.group(),"",line)
@@ -193,11 +193,11 @@ class Test_data(object):
             self.Data[D_index].append(Value)
             self.T_lst[D_index].append(str(Test_class.T_dic[Pat][0]))
 
-        if "WNO" in Pat:
+        if "WNO" in Pat and self.Wno[D_index] == "0":
             self.Wno[D_index]  = '{:.0f}'.format(float(Value))
-        elif "XADR" in Pat:
+        elif "XADR" in Pat and self.XADR[D_index] == "0":
             self.XADR[D_index] = '{:.0f}'.format(float(Value))
-        elif "YADR" in Pat:
+        elif "YADR" in Pat and self.YADR[D_index] == "0":
             self.YADR[D_index] = '{:.0f}'.format(float(Value))
 
     def Input_failT(self,Dut,Pat):
@@ -206,7 +206,7 @@ class Test_data(object):
 
     def set_res(self,Dut,PF,Bin):
         D_index = self.D_lst.index(Dut)
-        if PF == "PASS":
+        if PF == "PASS" or not self.FailT[D_index]:
             self.FailT[D_index] = "0"
         self.PF[D_index] = PF
         self.Bin[D_index] = Bin
@@ -247,6 +247,11 @@ class Test_class(object):
             self.T_dic[Pat] = [str(self.cnt),str(temp[0]),'_'.join(temp[1:]),str(High),str(Low),Unit,Type]
             self.T_key[str(self.cnt)] = Pat
             self.cnt += 1
+        self.T_dic[Pat][3] = str(High) if self.T_dic[Pat][3] == "-" else self.T_dic[Pat][3]
+        self.T_dic[Pat][4] = str(Low)  if self.T_dic[Pat][4] == "-" else self.T_dic[Pat][4]
+        self.T_dic[Pat][5] = str(Unit) if self.T_dic[Pat][5] == "-" else self.T_dic[Pat][5]
+        
+            
 
     def final(self,df):
         lst = list(df.index)
@@ -361,10 +366,10 @@ class Solution(object):
         elif High_U:
             Unit = High_U
         else:
-            Unit = Low_U
+            Unit = Value_U
 
         if Test_class.T_dic.get(Pat,0):
-            Unit = Test_class.T_dic[Pat][-2]
+            Unit = Test_class.T_dic[Pat][-2] if Test_class.T_dic[Pat][-2] != "-" else Unit
 
         Value = self.Unit_change(Value_U, Unit, Value)
         High  = self.Unit_change(High_U, Unit, High)
@@ -435,4 +440,5 @@ if __name__ == '__main__':
          2021/11/09 大CSVファイル読み取りファッション改善
          2021/11/09 単位変換ファッション修正
          2021/11/11 コーディング順番ミス修正
+         2022/01/07 Unit選択ミス修正
 """
