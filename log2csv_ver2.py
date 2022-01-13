@@ -11,7 +11,7 @@ import os
 
 
 def main():
-    if len(sys.argv) < 3 or sys.argv[1] not in ["-sort","-org"]:
+    if len(sys.argv) < 3 or sys.argv[1] not in ["-sort", "-org"]:
         tip()
     flag  = sys.argv[1]
     files = sys.argv[2:]
@@ -20,17 +20,17 @@ def main():
     while files:
         f = files.pop(0)
         dataframe2 = log2csv(f)
-        dataframe = pd.concat([dataframe,dataframe2],axis=1)
+        dataframe = pd.concat([dataframe, dataframe2], axis=1)
     lot = Pro.fix_list(dataframe.columns)
-    dataframe = dataframe.groupby(dataframe.columns,axis=1).agg(lambda x : Pro.fix_DF(x))   # サンプルごとに纏めない場合、この行をコメントする。
-    dataframe = T.final(dataframe.loc[:,lot])
+    dataframe = dataframe.groupby(dataframe.columns, axis=1).agg(lambda x: Pro.fix_DF(x))   # サンプルごとに纏めない場合、この行をコメントする。
+    dataframe = T.final(dataframe.loc[:, lot])
 
     if flag == "-sort":
         dataframe = pd.concat([dataframe.loc[dataframe.loc[:, "type"] == "", :],
-                               dataframe.loc[dataframe.loc[:, "type"] == "DC",:],
-                               dataframe.loc[dataframe.loc[:, "type"] == "FT",:]],axis=0)
+                               dataframe.loc[dataframe.loc[:, "type"] == "DC", :],
+                               dataframe.loc[dataframe.loc[:, "type"] == "FT", :]], axis=0)
 
-    dataframe.drop(['type'],axis=1).to_csv(file+".csv",index=False)
+    dataframe.drop(['type'], axis=1).to_csv(file+".csv",index=False)
 
 
 def log2csv(file):
@@ -39,7 +39,7 @@ def log2csv(file):
     desSNo   = 0
     desENo   = -1
     patBin   = re.compile(r'DUT (\d+) : (\w+) :')
-    out      = open("temp.csv","w+")
+    out      = open("temp.csv", "w+")
 
     with open(file, 'rb') as f:
 
@@ -49,7 +49,7 @@ def log2csv(file):
                 break
             elif 'ALARM_FAIL' in line:
                 temp = line.strip().split()
-                Res.set_alarm(temp[0],temp[-1],Pat,Value)
+                Res.set_alarm(temp[0], temp[-1], Pat, Value)
                 continue
             if "Start" in line:
                 Res = Test_data()
@@ -70,16 +70,16 @@ def log2csv(file):
                     Res.Input_Value(p.group(1), "XADR", p.group(2))
                     Res.Input_Value(p.group(1), "YADR", p.group(3))
             
-            line = Pro.fix_line(line,desSNo,desENo)
+            line = Pro.fix_line(line, desSNo, desENo)
 
             if not re.match(r'\d+\s+', line):
                 pb = patBin.match(line)
                 if pb and "NONE" not in line:
                     Dut = pb.group(1)
                     PF  = pb.group(2)
-                    Bin = re.sub(pb.group(),"",line)
-                    Res.set_res(Dut,PF,Bin)
-                if re.match(r'Bins',line):
+                    Bin = re.sub(pb.group(), "", line)
+                    Res.set_res(Dut, PF, Bin)
+                if re.match(r'Bins', line):
                     ed_flag = 1
                 if ed_flag == 1 and line == "":
                     ed_flag = 0
@@ -355,11 +355,17 @@ class Solution(object):
                             temp.append(i1t)
                         temp.append(i2)
                     elif i2 not in lst1:
-                        temp.append(i2)
+                        while lst1:
+                            i1t = lst1.pop(0)
+                            if i1t in lst2:
+                                lst1.insert(0, i1t)
+                                break
+                            temp.append(i1t)
+                        lst1.insert(0, i2)
         if lst1:
-            temp = temp+lst1
+            temp = temp + lst1
         elif lst2:
-            temp = temp+lst2
+            temp = temp + lst2
         return temp
 
     @staticmethod
