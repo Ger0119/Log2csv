@@ -144,6 +144,7 @@ def log2csv(file):
 
     ind = ""
     base = pd.DataFrame()
+    r_lst = []
     with open("temp.csv") as f:
         for line in f:
             if not line:
@@ -153,14 +154,17 @@ def log2csv(file):
                 continue
             else:
                 temp_col = ["Wno", "X", "Y", "P/F", "DUT", "FailTest", "BIN", "Alarm"] + ind.strip().split(',')[8:]
+
                 td = line.strip().split(',')
                 temp = pd.DataFrame(td, columns=['.'.join(td[:3])], index=Pro.fix_Index(temp_col))
                 ind = ""
 
                 base = pd.concat([base, temp], axis=1)
+                r_lst = Pro.merge_lst(r_lst, temp_col)
 
     os.remove("temp.csv")
-    return base
+
+    return base.loc[r_lst]
 
 
 class Test_data(object):
@@ -174,6 +178,7 @@ class Test_data(object):
     PF    = []
     Bin   = []
     Alarm = []
+    F_lst = []
 
     def Input_Value(self,Dut,Pat,Value):
         if Dut not in self.D_lst:
@@ -250,8 +255,6 @@ class Test_class(object):
         self.T_dic[Pat][3] = str(High) if self.T_dic[Pat][3] == "-" else self.T_dic[Pat][3]
         self.T_dic[Pat][4] = str(Low)  if self.T_dic[Pat][4] == "-" else self.T_dic[Pat][4]
         self.T_dic[Pat][5] = str(Unit) if self.T_dic[Pat][5] == "-" else self.T_dic[Pat][5]
-        
-            
 
     def final(self,df):
         lst = list(df.index)
@@ -321,6 +324,42 @@ class Solution(object):
                     else:
                         temp.append(str(x) + "." + str(cnt))
                         break
+        return temp
+
+    def merge_lst(self, lst1, lst2):
+        lst2 = self.fix_Index(lst2)
+        if not lst1:
+            return lst2
+        temp = []
+        while lst1 and lst2:
+            i1 = lst1.pop(0)
+            i2 = lst2.pop(0)
+            if i1 == i2:
+                temp.append(i1)
+            else:
+                if i1 in lst2:
+                    temp.append(i2)
+                    while True:
+                        i2t = lst2.pop(0)
+                        if i2t == i1:
+                            break
+                        temp.append(i2t)
+                    temp.append(i1)
+                elif i1 not in lst2:
+                    temp.append(i1)
+                    if i2 in lst1:
+                        while True:
+                            i1t = lst1.pop(0)
+                            if i1t == i2:
+                                break
+                            temp.append(i1t)
+                        temp.append(i2)
+                    elif i2 not in lst1:
+                        temp.append(i2)
+        if lst1:
+            temp = temp+lst1
+        elif lst2:
+            temp = temp+lst2
         return temp
 
     @staticmethod
@@ -432,6 +471,7 @@ if __name__ == '__main__':
     print(' The Process took {:.3f} seconds'.format(end_t - start_t))
 
 """
+Version: 2
 作成日付：　2021/11/01
 
 修正歴 :  2021/11/08 Alarm_Fail抽出ファッション追加
@@ -441,4 +481,5 @@ if __name__ == '__main__':
          2021/11/09 単位変換ファッション修正
          2021/11/11 コーディング順番ミス修正
          2022/01/07 Unit選択ミス修正
+         2022/01/13 テスト順番改善ファンクション追加
 """
