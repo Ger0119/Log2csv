@@ -393,7 +393,7 @@ class Solution(object):
         if data == "None":
             return '-', ''
         Unit = np.nan
-        pat  = re.search(r'^([-\d.]+)', data)
+        pat  = re.search(r'^([-\d.e+]+)', data)
         num  = pat.group(0)
         Unit = data.replace(num, '')
 
